@@ -1,9 +1,6 @@
 CREATE DATABASE HotelLabBd
 USE HotelLabBd
 
-ALTER TABLE cliente ALTER COLUMN cpf VARCHAR(11);
-ALTER TABLE checkin ALTER COLUMN clientecpf VARCHAR(11);
-
 CREATE TABLE cliente(
 	cpf				VARCHAR(11),
 	nome			VARCHAR(100)		NOT NULL,
@@ -129,6 +126,48 @@ BEGIN
     RETURN;
 END;
 
+
+-- verificar checkin
+CREATE TRIGGER trg_prevent_conflicting_checkin
+ON checkin
+INSTEAD OF INSERT
+AS
+BEGIN
+    
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            SELECT quartonumero, 
+                   inicio AS start_date, 
+                   DATEADD(DAY, qtd_dias - 1, inicio) AS end_date
+            FROM reserva
+            UNION ALL
+            SELECT quartonumero, 
+                   data_checkin AS start_date, 
+                   data_checkout AS end_date
+            FROM checkin
+        ) AS ocupacao
+        JOIN inserted i ON ocupacao.quartonumero = i.quartonumero
+        WHERE 
+            (i.data_checkin BETWEEN ocupacao.start_date AND ocupacao.end_date) OR
+            (i.data_checkout BETWEEN ocupacao.start_date AND ocupacao.end_date) OR
+            (i.data_checkin <= ocupacao.start_date AND i.data_checkout >= ocupacao.end_date)
+    )
+    BEGIN
+        RAISERROR('O quarto já está ocupado ou reservado para o período especificado.', 16, 1);
+        ROLLBACK;
+    END
+    ELSE
+    BEGIN
+        
+        INSERT INTO checkin(id, data_checkin, data_checkout, reservado, clientecpf, quartonumero)
+        SELECT id, data_checkin, data_checkout, reservado, clientecpf, quartonumero
+        FROM inserted;
+    END
+END;
+
+
+SELECT * FROM cliente;
 -- Tabela cliente
 INSERT INTO cliente (cpf, nome, telefone, cidade) VALUES
 ('12345678901', 'Maria Silva', '11987654321', 'São Paulo'),
@@ -140,6 +179,7 @@ INSERT INTO tipo (id, nome, preco) VALUES
 (1, 'Quarto Simples', 150.00),
 (2, 'Quarto Duplo', 250.00),
 (3, 'Suíte Luxo', 500.00);
+SELECT * FROM tipo
 
 -- Tabela quarto
 INSERT INTO quarto (numero, andar, descricao, tipoid) VALUES
@@ -147,11 +187,14 @@ INSERT INTO quarto (numero, andar, descricao, tipoid) VALUES
 (102, 1, 'Quarto Duplo com duas camas de solteiro', 2),
 (201, 2, 'Suíte Luxo com cama king size e banheira', 3);
 
+Select * from quarto
+
 -- Tabela reserva
 INSERT INTO reserva (id, inicio, qtd_dias, valor, clientecpf, quartonumero) VALUES
 (1, '2024-10-20', 5, 750.00, '12345678901', 101),
 (2, '2024-10-22', 3, 750.00, '98765432100', 201),
 (3, '2024-10-24', 2, 500.00, '45678912300', 102);
+SELECT * FROM reserva
 
 -- Tabela checkin
 INSERT INTO checkin (id, data_checkin, data_checkout, reservado, clientecpf, quartonumero) VALUES
@@ -165,12 +208,14 @@ INSERT INTO servico (id, nome, descricao, valor) VALUES
 (2, 'Spa', 'Acesso ao spa com sauna e massagens', 200.00),
 (3, 'Estacionamento', 'Uso do estacionamento privativo', 30.00);
 
+	
+
 -- Tabela solicitacoesServicos
 INSERT INTO solicitacoesServicos (id, quantidade, valorTotal, servicoid, checkinid) VALUES
 (1, 1, 50.00, 1, 1),
 (2, 2, 60.00, 3, 2),
 (3, 1, 200.00, 2, 3);
-
+SELECT * FROM solicitacoesServicos
 
 SELECT * FROM f_quartosDisponiveis('2024-10-25', 3);
 
@@ -181,4 +226,112 @@ DELETE FROM quarto;
 DELETE FROM tipo;
 DELETE FROM servico;
 DELETE FROM cliente;
+
+
+INSERT INTO reserva (id, inicio, qtd_dias, clientecpf, quartonumero)
+VALUES (1, '2024-11-15', 5, '1', 101);
+
+CREATE TRIGGER trg_before_insert_reserva
+ON reserva
+INSTEAD OF INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO reserva (id, inicio, qtd_dias, valor, clientecpf, quartonumero)
+    SELECT 
+        i.id,
+        i.inicio,
+        i.qtd_dias,
+        t.preco * i.qtd_dias AS valor,
+        i.clientecpf,
+        i.quartonumero
+    FROM 
+        inserted i
+    INNER JOIN 
+        quarto q ON i.quartonumero = q.numero
+    INNER JOIN 
+        tipo t ON q.tipoid = t.id;
+END;
+
+
+-- Deve-se poder gerar um relatório em PDF com os dados dos quartos, tipo, valor dos
+-- quartos disponíveis em um determinado dia.
+	SELECT 
+		q.numero AS quarto_numero,
+		q.andar,
+		q.descricao,
+		t.nome AS tipo_nome,
+		t.preco AS preco
+	FROM 
+		quarto q
+	JOIN 
+		tipo t ON q.tipoid = t.id
+	LEFT JOIN 
+		reserva r ON q.numero = r.quartonumero
+		AND '2024-11-24' BETWEEN r.inicio AND DATEADD(DAY, r.qtd_dias, r.inicio)
+	LEFT JOIN 
+		checkin c ON q.numero = c.quartonumero
+		AND '2024-11-24' BETWEEN c.data_checkin AND c.data_checkout
+	WHERE 
+		r.id IS NULL 
+		AND c.id IS NULL;
+
+
+--Deve-se poder gerar um relatório em PDF com os dados do cliente, da hospedagem,
+--serviços consumidos e o valor total (Apenas no cabeçalho) do período contratado.
+SELECT 
+    cli.nome AS cliente_nome,
+    cli.telefone AS cliente_telefone,
+    q.numero AS quarto_numero,
+    q.descricao AS quarto_descricao,
+    t.nome AS tipo_quarto,
+    t.preco AS preco_quarto,
+    r.inicio AS data_inicio_reserva,
+    r.qtd_dias AS quantidade_dias,
+    r.valor AS valor_hospedagem,
+    ISNULL(SUM(ss.valorTotal), 0) AS valor_servicos,
+    (r.valor + ISNULL(SUM(ss.valorTotal), 0)) AS valor_total
+FROM 
+    cliente cli
+JOIN 
+    reserva r ON cli.cpf = r.clientecpf
+JOIN 
+    quarto q ON r.quartonumero = q.numero
+JOIN 
+    tipo t ON q.tipoid = t.id
+LEFT JOIN 
+    checkin c ON r.id = c.id
+LEFT JOIN 
+    solicitacoesServicos ss ON c.id = ss.checkinid
+WHERE 
+    r.inicio >= '2024-11-01' 
+    AND DATEADD(DAY, r.qtd_dias, r.inicio) <= '2024-11-30' 
+GROUP BY 
+    cli.nome, cli.telefone, q.numero, q.descricao, t.nome, t.preco, r.inicio, r.qtd_dias, r.valor;
+
+
+--Deve-se poder gerar um relatório em PDF com os dados dos clientes, quartos, tipo
+-- e valor, das reservas de um determinado dia
+
+SELECT 
+    cli.nome AS cliente_nome,
+    cli.telefone AS cliente_telefone,
+    q.numero AS quarto_numero,
+    q.descricao AS quarto_descricao,
+    t.nome AS tipo_quarto,
+    t.preco AS preco_quarto,
+    r.inicio AS data_inicio_reserva,
+    r.qtd_dias AS quantidade_dias,
+    r.valor AS valor_reserva
+FROM 
+    reserva r
+JOIN 
+    cliente cli ON r.clientecpf = cli.cpf
+JOIN 
+    quarto q ON r.quartonumero = q.numero
+JOIN 
+    tipo t ON q.tipoid = t.id
+WHERE 
+    '2024-10-22' BETWEEN r.inicio AND DATEADD(DAY, r.qtd_dias - 1, r.inicio);
 

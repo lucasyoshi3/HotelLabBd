@@ -6,6 +6,6 @@ import org.springframework.stereotype.Repository;
 import com.fatec.HotelLabBd.HotelLabBd.model.SolicitacoesServicos;
 
 @Repository
-public interface solicitacaoServico extends JpaRepository<SolicitacoesServicos, Integer>{
+public interface SolicitacaoServicoRepository extends JpaRepository<SolicitacoesServicos, Integer>{
 
 }

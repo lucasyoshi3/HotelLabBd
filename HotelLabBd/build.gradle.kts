@@ -26,7 +26,7 @@ repositories {
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
+	
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	compileOnly("org.projectlombok:lombok")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
@@ -35,6 +35,24 @@ dependencies {
 	providedRuntime("org.springframework.boot:spring-boot-starter-tomcat")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	
+	
+	// https://mvnrepository.com/artifact/org.apache.tomcat/tomcat-jasper
+	// implementation("org.apache.tomcat:tomcat-jasper:11.0.1")
+	
+	// https://mvnrepository.com/artifact/net.sf.jasperreports/jasperreports
+	implementation("net.sf.jasperreports:jasperreports:6.21.0")
+	
+	// https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+	implementation("org.slf4j:slf4j-api:2.0.12")
+	
+	// https://mvnrepository.com/artifact/com.github.librepdf/openpdf
+	// implementation("com.github.librepdf:openpdf:1.3.30")
+	
+	// https://mvnrepository.com/artifact/com.lowagie/itext
+	// implementation("com.lowagie:itext:2.1.7")
+	// implementation ("com.lowagie:itext:2.1.7.js8")
+
 	
 	// https://mvnrepository.com/artifact/jakarta.servlet/jakarta.servlet-api
 	compileOnly("jakarta.servlet:jakarta.servlet-api:6.0.0")

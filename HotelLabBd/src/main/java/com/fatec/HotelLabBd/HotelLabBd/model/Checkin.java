@@ -33,6 +33,6 @@ public class Checkin {
     private Cliente cliente;
 
     @ManyToOne
-    @JoinColumn(name = "quartonumero", referencedColumnName = "numero")
+    @JoinColumn(name = "quartonumero", referencedColumnName = "numero"	)
     private Quarto quarto;
 }

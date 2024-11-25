@@ -16,5 +16,11 @@ public interface ReservaRepository extends JpaRepository<Reserva, Integer>{
 
 	@Query(value = "SELECT * FROM f_quartosDisponiveis(:data, :qtdDias)", nativeQuery = true)
 	public List<Quarto> verificarQuartosDisponiveis(@Param("data") LocalDate data, @Param("qtdDias")int qtdDias);
+	
+//	@Query("SELECT (t.preco * r.qtdDias) FROM Reserva r " +
+//	           "JOIN Quarto q ON r.quarto.numero = q.numero " +
+//	           "JOIN Tipo t ON q.tipo.id = t.id " +
+//	           "WHERE r.id = :reservaId")
+//	Double findValorCalculadoByReservaId(@Param("reservaId") Integer reservaId);
 }
 
